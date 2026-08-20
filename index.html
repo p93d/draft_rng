@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draft Slot Simulator</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input {
+            width: 200px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            padding: 11px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .summary {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 500px;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Draft Slot Simulator</h1>
+
+    <p>
+        Simulate randomly entering a draft room with 11 other drafters.
+        Each simulation randomly assigns you a draft slot from 1 through 12.
+    </p>
+
+    <div class="controls">
+
+        <div class="input-group">
+            <label for="numSimulations">Number of simulations</label>
+            <input
+                type="number"
+                id="numSimulations"
+                value="100000"
+                min="1"
+                step="1"
+            >
+        </div>
+
+        <button onclick="runSimulation()">
+            Run Simulation
+        </button>
+
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="chart-container">
+        <canvas id="resultsChart"></canvas>
+    </div>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Draft Slot</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+</div>
+
+<script>
+
+    let chart = null;
+
+    function runSimulation() {
+
+        const numSimulations =
+            parseInt(document.getElementById("numSimulations").value);
+
+        if (!Number.isInteger(numSimulations) || numSimulations < 1) {
+            alert("Please enter a valid number of simulations.");
+            return;
+        }
+
+        // Create counts for draft slots 1-12
+        const counts = Array(12).fill(0);
+
+        // Run simulations
+        for (let i = 0; i < numSimulations; i++) {
+
+            // Random integer from 1 through 12
+            const draftSlot =
+                Math.floor(Math.random() * 12) + 1;
+
+            counts[draftSlot - 1]++;
+        }
+
+        // Calculate percentages
+        const percentages = counts.map(
+            count => (count / numSimulations) * 100
+        );
+
+        // Update summary
+        document.getElementById("summary").innerHTML =
+            `<strong>${numSimulations.toLocaleString()}</strong> simulations completed. 
+             The theoretical probability of each slot is <strong>8.33%</strong>.`;
+
+        // Update chart
+        const ctx = document
+            .getElementById("resultsChart")
+            .getContext("2d");
+
+        if (chart) {
+            chart.destroy();
+        }
+
+        chart = new Chart(ctx, {
+            type: "bar",
+
+            data: {
+                labels: Array.from(
+                    { length: 12 },
+                    (_, i) => `Slot ${i + 1}`
+                ),
+
+                datasets: [{
+                    label: "Number of simulations",
+                    data: counts,
+                    backgroundColor: "#2563eb",
+                    borderColor: "#1d4ed8",
+                    borderWidth: 1
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Number of times selected"
+                        }
+                    },
+
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Draft Slot"
+                        }
+                    }
+                },
+
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+
+                                const index = context.dataIndex;
+                                const count = counts[index];
+                                const percentage = percentages[index];
+
+                                return [
+                                    `Count: ${count.toLocaleString()}`,
+                                    `Probability: ${percentage.toFixed(3)}%`
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Update table
+        const tbody =
+            document.querySelector("#resultsTable tbody");
+
+        tbody.innerHTML = "";
+
+        counts.forEach((count, index) => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${count.toLocaleString()}</td>
+                <td>${percentages[index].toFixed(3)}%</td>
+            `;
+
+            tbody.appendChild(row);
+        });
+    }
+
+    // Run once when page loads
+    runSimulation();
+
+</script>
+
+</body>
+</html>
